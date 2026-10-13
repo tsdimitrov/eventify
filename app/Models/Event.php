@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Observers\EventObserver;
 use Carbon\CarbonImmutable;
 use Database\Factories\EventFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,8 +24,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, mixed>|null $metadata
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
+ * @property-read int|null $tasks_count
+ * @property-read int|null $completed_tasks_count
+ * @property-read int|null $overdue_tasks_count
  * @property-read Collection<int, Task> $tasks
  */
+#[ObservedBy(EventObserver::class)]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */

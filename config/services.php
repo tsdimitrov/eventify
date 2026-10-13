@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'google_chat' => [
+        'webhook_url' => env('GOOGLE_CHAT_WEBHOOK_URL'),
+        'enabled' => env('GOOGLE_CHAT_NOTIFICATIONS_ENABLED', true),
+    ],
+
 ];

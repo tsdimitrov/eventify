@@ -13,28 +13,28 @@ test('task template seeder populates webinar and conference templates', function
 
     expect(TaskTemplate::where([
         'event_type' => 'webinar',
-        'title' => 'Banner & Social Visuals',
+        'title' => 'Design promo banners & thumbnail',
         'offset_days' => -14,
         'assigned_role' => 'designer',
     ])->exists())->toBeTrue();
 
     expect(TaskTemplate::where([
         'event_type' => 'webinar',
-        'title' => 'Draft Promo Article & Social Copy',
+        'title' => 'Draft LinkedIn & Twitter copy',
         'offset_days' => -10,
         'assigned_role' => 'copywriter',
     ])->exists())->toBeTrue();
 
     expect(TaskTemplate::where([
         'event_type' => 'webinar',
-        'title' => 'Email Invitation Blast',
+        'title' => 'Send email invitation blast',
         'offset_days' => -5,
         'assigned_role' => 'marketing_lead',
     ])->exists())->toBeTrue();
 
     expect(TaskTemplate::where([
         'event_type' => 'webinar',
-        'title' => 'Final Reminder Notification',
+        'title' => 'Send final 24h reminder notification',
         'offset_days' => -1,
         'assigned_role' => 'marketing_lead',
     ])->exists())->toBeTrue();
@@ -44,21 +44,21 @@ test('task template seeder populates webinar and conference templates', function
 
     expect(TaskTemplate::where([
         'event_type' => 'conference',
-        'title' => 'Keynote Assets & Slide Deck Template',
+        'title' => 'Prepare speaker decks & visual assets',
         'offset_days' => -21,
         'assigned_role' => 'designer',
     ])->exists())->toBeTrue();
 
     expect(TaskTemplate::where([
         'event_type' => 'conference',
-        'title' => 'Agenda Publication & PR Post',
+        'title' => 'Publish agenda & press release',
         'offset_days' => -14,
         'assigned_role' => 'copywriter',
     ])->exists())->toBeTrue();
 
     expect(TaskTemplate::where([
         'event_type' => 'conference',
-        'title' => 'Logistics & Venue Confirmation Check',
+        'title' => 'Venue tech check & run-of-show review',
         'offset_days' => -7,
         'assigned_role' => 'operations',
     ])->exists())->toBeTrue();

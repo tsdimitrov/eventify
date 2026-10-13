@@ -48,7 +48,7 @@ test('event status defaults to draft', function (): void {
 test('task template can be created and casts offset_days to integer', function (): void {
     $template = TaskTemplate::create([
         'event_type' => 'webinar',
-        'title' => 'Banner & Social Visuals',
+        'title' => 'Design promo banners & thumbnail',
         'description_template' => 'Create banner assets for social promo.',
         'offset_days' => '-14',
         'assigned_role' => 'designer',
@@ -56,7 +56,7 @@ test('task template can be created and casts offset_days to integer', function (
 
     expect($template->id)->not->toBeNull()
         ->and($template->event_type)->toBe('webinar')
-        ->and($template->title)->toBe('Banner & Social Visuals')
+        ->and($template->title)->toBe('Design promo banners & thumbnail')
         ->and($template->offset_days)->toBeInt()
         ->and($template->offset_days)->toBe(-14)
         ->and($template->assigned_role)->toBe('designer');
