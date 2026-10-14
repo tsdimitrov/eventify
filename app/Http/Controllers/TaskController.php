@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTaskRequest;
 use App\Models\Task;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -13,6 +14,19 @@ use Inertia\Response;
 
 class TaskController extends Controller
 {
+    /**
+     * Store a newly created task.
+     */
+    public function store(StoreTaskRequest $request): RedirectResponse
+    {
+        $validated = $request->validated();
+        $validated['status'] = 'pending';
+
+        Task::create($validated);
+
+        return back()->with('success', 'Custom task added successfully.');
+    }
+
     /**
      * Display a listing of tasks across events.
      */

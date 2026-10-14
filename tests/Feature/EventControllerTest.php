@@ -17,12 +17,12 @@ test('guests are redirected from events index to login', function (): void {
 test('authenticated users can view events index with task progress counts', function (): void {
     $user = User::factory()->create();
 
-    $event1 = Event::factory()->create([
+    $event1 = Event::factory()->scheduled()->create([
         'title' => 'First Event',
         'event_date' => now()->addDays(5),
     ]);
 
-    $event2 = Event::factory()->create([
+    $event2 = Event::factory()->scheduled()->create([
         'title' => 'Second Event',
         'event_date' => now()->addDays(10),
     ]);
@@ -35,11 +35,11 @@ test('authenticated users can view events index with task progress counts', func
     $response->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Events/Index')
-            ->has('events', 2)
-            ->where('events.0.id', $event1->id)
-            ->where('events.0.tasks_count', 2)
-            ->where('events.0.completed_tasks_count', 1)
-            ->where('events.1.id', $event2->id)
+            ->has('events.data', 2)
+            ->where('events.data.0.id', $event1->id)
+            ->where('events.data.0.tasks_count', 2)
+            ->where('events.data.0.completed_tasks_count', 1)
+            ->where('events.data.1.id', $event2->id)
         );
 });
 
@@ -93,7 +93,7 @@ test('storing an event creates record, seeds tasks, and redirects to show', func
     $response->assertRedirect(route('events.show', $event))
         ->assertSessionHas('success', 'Event created successfully.');
 
-    expect($event->tasks()->count())->toBe(4);
+    expect($event->tasks()->count())->toBe(6);
 });
 
 test('authenticated users can view event show page with ordered tasks', function (): void {

@@ -19,7 +19,7 @@ test('creating an event with type webinar automatically triggers task creation',
         'type' => 'webinar',
     ]);
 
-    expect($event->tasks()->count())->toBe(4);
+    expect($event->tasks()->count())->toBe(6);
 
     $tasks = $event->tasks()->get();
     expect($tasks->pluck('title')->all())->toContain(
@@ -27,6 +27,8 @@ test('creating an event with type webinar automatically triggers task creation',
         'Draft LinkedIn & Twitter copy',
         'Send email invitation blast',
         'Send final 24h reminder notification',
+        'Upload session recording & slides to Drive/YouTube',
+        'Dispatch attendee follow-up & feedback survey',
     );
 
     expect($tasks->every(fn (Task $task): bool => $task->status === 'pending'))->toBeTrue();
@@ -76,18 +78,18 @@ test('idempotency ensures invoking action twice does not produce duplicate tasks
 
     $action = app(GenerateTasksForEventAction::class);
 
-    // Initial event creation auto-generated 3 tasks
-    expect($event->tasks()->count())->toBe(3);
+    // Initial event creation auto-generated 5 tasks
+    expect($event->tasks()->count())->toBe(5);
 
     // Second execution with force = false should not create duplicates
     $existingTasks = $action->execute($event, force: false);
-    expect($existingTasks)->toHaveCount(3)
-        ->and($event->tasks()->count())->toBe(3);
+    expect($existingTasks)->toHaveCount(5)
+        ->and($event->tasks()->count())->toBe(5);
 
     // Third execution with force = true should create a fresh batch
     $forcedTasks = $action->execute($event, force: true);
-    expect($forcedTasks)->toHaveCount(3)
-        ->and($event->tasks()->count())->toBe(6);
+    expect($forcedTasks)->toHaveCount(5)
+        ->and($event->tasks()->count())->toBe(10);
 });
 
 test('event with unknown or template-less type creates zero tasks without throwing exceptions', function (): void {

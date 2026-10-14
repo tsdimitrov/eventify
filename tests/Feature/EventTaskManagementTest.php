@@ -114,7 +114,7 @@ test('deleting an event cascades and deletes associated tasks', function (): voi
 
     expect(Task::where('event_id', $event->id)->count())->toBe(2);
 
-    $event->delete();
+    $event->forceDelete();
 
     expect(Task::find($task1->id))->toBeNull()
         ->and(Task::find($task2->id))->toBeNull();

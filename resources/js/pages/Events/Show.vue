@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, setLayoutProps } from '@inertiajs/vue3';
+import { Head, Link, router, setLayoutProps, useForm } from '@inertiajs/vue3';
 import {
     AlertCircle,
     ArrowLeft,
@@ -11,13 +11,16 @@ import {
     FileText,
     Link as LinkIcon,
     Pencil,
+    Plus,
     Sparkles,
     User,
     X,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Card,
     CardContent,
@@ -138,14 +141,78 @@ function getEventCountdown(dateString: string): string {
     return `T+${Math.abs(diffDays)} Days (Past)`;
 }
 
-function getTaskTMinus(taskDueDate: string, eventDate: string): string {
-    const taskTime = new Date(taskDueDate).getTime();
-    const eventTime = new Date(eventDate).getTime();
-    const diffDays = Math.round((taskTime - eventTime) / (1000 * 60 * 60 * 24));
+function getTaskTimelineBadge(taskDueDate: string, eventDate: string): {
+    label: string;
+    badgeClass: string;
+} {
+    const taskTime = new Date(taskDueDate);
+    const eventTime = new Date(eventDate);
 
-    if (diffDays === 0) return 'T-0 (Event Day)';
-    if (diffDays < 0) return `T${diffDays} Days`;
-    return `T+${diffDays} Days`;
+    const taskDay = new Date(taskTime.getFullYear(), taskTime.getMonth(), taskTime.getDate()).getTime();
+    const eventDay = new Date(eventTime.getFullYear(), eventTime.getMonth(), eventTime.getDate()).getTime();
+    const diffDays = Math.round((taskDay - eventDay) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+        return {
+            label: 'T-0: Event Day',
+            badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+        };
+    }
+
+    if (diffDays < 0) {
+        return {
+            label: `T${diffDays} Days: Preparation`,
+            badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+        };
+    }
+
+    return {
+        label: `T+${diffDays} Days: Post-Event Wrap-up`,
+        badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+    };
+}
+
+function formatForDateTimeLocal(dateString: string | null | undefined): string {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    const mm = pad(date.getMonth() + 1);
+    const dd = pad(date.getDate());
+    const hh = pad(date.getHours());
+    const min = pad(date.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
+const showCreateTaskDialog = ref(false);
+
+const createTaskForm = useForm({
+    event_id: props.event.id,
+    title: '',
+    description: '',
+    due_date: formatForDateTimeLocal(props.event.event_date),
+    assigned_role: 'operations',
+    assigned_to: '',
+});
+
+function openCreateTaskModal(): void {
+    createTaskForm.reset();
+    createTaskForm.event_id = props.event.id;
+    createTaskForm.due_date = formatForDateTimeLocal(props.event.event_date);
+    createTaskForm.assigned_role = 'operations';
+    createTaskForm.clearErrors();
+    showCreateTaskDialog.value = true;
+}
+
+function submitCreateTask(): void {
+    createTaskForm.post(tasksRoutes.store.url(), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showCreateTaskDialog.value = false;
+            createTaskForm.reset();
+        },
+    });
 }
 
 function formatTypeName(type: string): string {
@@ -196,6 +263,13 @@ const progressPercent = computed(() => {
                 </Button>
 
                 <div class="flex items-center gap-2">
+                    <Button as-child variant="outline" size="sm">
+                        <Link :href="eventsRoutes.edit.url(event.id)">
+                            <Pencil class="mr-1.5 h-3.5 w-3.5" />
+                            Edit Event
+                        </Link>
+                    </Button>
+
                     <Badge variant="outline" class="text-xs uppercase tracking-wider">
                         {{ event.status }}
                     </Badge>
@@ -288,7 +362,7 @@ const progressPercent = computed(() => {
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
                 <!-- Task Management Board / List -->
                 <div class="space-y-4 lg:col-span-7">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 class="text-xl font-bold tracking-tight text-foreground">
                                 Execution Tasks
@@ -298,8 +372,14 @@ const progressPercent = computed(() => {
                             </p>
                         </div>
 
-                        <div class="text-xs text-muted-foreground font-mono">
-                            {{ event.tasks?.length ?? 0 }} total tasks
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-muted-foreground font-mono">
+                                {{ event.tasks?.length ?? 0 }} total tasks
+                            </span>
+                            <Button size="sm" @click="openCreateTaskModal">
+                                <Plus class="mr-1.5 h-4 w-4" />
+                                Add Custom Task
+                            </Button>
                         </div>
                     </div>
 
@@ -309,6 +389,10 @@ const progressPercent = computed(() => {
                         class="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground"
                     >
                         <p>No tasks generated for this event.</p>
+                        <Button size="sm" class="mt-4" @click="openCreateTaskModal">
+                            <Plus class="mr-1.5 h-4 w-4" />
+                            Add First Task
+                        </Button>
                     </div>
 
                     <!-- Tasks List -->
@@ -335,10 +419,17 @@ const progressPercent = computed(() => {
                                                 {{ task.assigned_role.replace(/_/g, ' ') }}
                                             </span>
 
-                                            <!-- Relative T-minus and Due Date -->
-                                            <span class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground font-mono">
-                                                <Clock class="h-3.5 w-3.5" />
-                                                {{ getTaskTMinus(task.due_date, event.event_date) }}: Due {{ formatTaskDueDate(task.due_date) }}
+                                            <!-- Relative T-minus / T-plus and Due Date -->
+                                            <span
+                                                :class="getTaskTimelineBadge(task.due_date, event.event_date).badgeClass"
+                                                class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold font-mono"
+                                            >
+                                                <Clock class="h-3 w-3" />
+                                                {{ getTaskTimelineBadge(task.due_date, event.event_date).label }}
+                                            </span>
+
+                                            <span class="inline-flex items-center text-xs text-muted-foreground font-mono">
+                                                Due {{ formatTaskDueDate(task.due_date) }}
                                             </span>
 
                                             <!-- Assignee if any -->
@@ -484,6 +575,114 @@ const progressPercent = computed(() => {
                             {{ isUpdatingAsset ? 'Saving...' : 'Save Link' }}
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <!-- Add Custom Task Modal -->
+            <Dialog v-model:open="showCreateTaskDialog">
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Add Custom Task</DialogTitle>
+                        <DialogDescription>
+                            Create an ad-hoc or post-event operational task linked to this event.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form @submit.prevent="submitCreateTask" class="space-y-4 py-2">
+                        <!-- Task Title -->
+                        <div class="space-y-2">
+                            <Label for="task_title">
+                                Task Title <span class="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                id="task_title"
+                                v-model="createTaskForm.title"
+                                type="text"
+                                placeholder="e.g. Upload recording to Drive or Survey blast"
+                                required
+                                :class="{ 'border-destructive': createTaskForm.errors.title }"
+                            />
+                            <InputError :message="createTaskForm.errors.title" />
+                        </div>
+
+                        <!-- Due Date & Role Grid -->
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div class="space-y-2">
+                                <Label for="task_due_date">
+                                    Due Date & Time <span class="text-destructive">*</span>
+                                </Label>
+                                <Input
+                                    id="task_due_date"
+                                    v-model="createTaskForm.due_date"
+                                    type="datetime-local"
+                                    required
+                                    :class="{ 'border-destructive': createTaskForm.errors.due_date }"
+                                />
+                                <InputError :message="createTaskForm.errors.due_date" />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="task_assigned_role">
+                                    Assigned Role <span class="text-destructive">*</span>
+                                </Label>
+                                <select
+                                    id="task_assigned_role"
+                                    v-model="createTaskForm.assigned_role"
+                                    required
+                                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                                    :class="{ 'border-destructive': createTaskForm.errors.assigned_role }"
+                                >
+                                    <option value="operations" class="bg-popover text-popover-foreground">Operations</option>
+                                    <option value="marketing_lead" class="bg-popover text-popover-foreground">Marketing Lead</option>
+                                    <option value="designer" class="bg-popover text-popover-foreground">Designer</option>
+                                    <option value="copywriter" class="bg-popover text-popover-foreground">Copywriter</option>
+                                </select>
+                                <InputError :message="createTaskForm.errors.assigned_role" />
+                            </div>
+                        </div>
+
+                        <!-- Assignee (optional) -->
+                        <div class="space-y-2">
+                            <Label for="task_assigned_to">Assignee Name / Email</Label>
+                            <Input
+                                id="task_assigned_to"
+                                v-model="createTaskForm.assigned_to"
+                                type="text"
+                                placeholder="e.g. Alex Dimitrov or alex@example.com"
+                                :class="{ 'border-destructive': createTaskForm.errors.assigned_to }"
+                            />
+                            <InputError :message="createTaskForm.errors.assigned_to" />
+                        </div>
+
+                        <!-- Description -->
+                        <div class="space-y-2">
+                            <Label for="task_description">Description / Notes</Label>
+                            <textarea
+                                id="task_description"
+                                v-model="createTaskForm.description"
+                                rows="3"
+                                placeholder="Provide specific operational instructions or requirements..."
+                                class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                                :class="{ 'border-destructive': createTaskForm.errors.description }"
+                            />
+                            <InputError :message="createTaskForm.errors.description" />
+                        </div>
+
+                        <DialogFooter class="pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                :disabled="createTaskForm.processing"
+                                @click="showCreateTaskDialog = false"
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" :disabled="createTaskForm.processing">
+                                <Spinner v-if="createTaskForm.processing" class="mr-2" />
+                                <span>{{ createTaskForm.processing ? 'Adding Task...' : 'Add Task' }}</span>
+                            </Button>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>

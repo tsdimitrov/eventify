@@ -7,65 +7,92 @@ use App\Models\Task;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
 
-test('DemoSeeder populates the database with showcase events and tasks', function (): void {
+test('DemoSeeder populates the database with showcase events and tasks across all lifecycle stages', function (): void {
     $this->seed(DemoSeeder::class);
 
     // Verify test demo user
     expect(User::where('email', 'test@example.com')->exists())->toBeTrue();
 
-    // Verify exactly 3 showcase events
+    // Verify exactly 5 showcase events
     $events = Event::withCount([
         'tasks',
         'tasks as completed_tasks_count' => fn ($q) => $q->where('status', 'completed'),
-    ])->orderBy('event_date', 'asc')->get();
+    ])->get();
 
-    expect($events)->toHaveCount(3);
+    expect($events)->toHaveCount(5);
 
-    // Event 1: Conference (Cloud AI Summit) - earlier date (T+5)
-    $conference = $events->firstWhere('type', 'conference');
-    expect($conference)->not->toBeNull();
-    expect($conference->title)->toBe('Enterprise Cloud & AI Summit 2026');
-    expect($conference->tasks_count)->toBe(3);
-    expect($conference->completed_tasks_count)->toBe(1);
+    // 1. Upcoming Flagship Webinar
+    $webinar = $events->firstWhere('title', 'Building Resilient Microservices with Go & Kotlin');
+    expect($webinar)->not->toBeNull()
+        ->and($webinar->status)->toBe('scheduled')
+        ->and($webinar->type)->toBe('webinar')
+        ->and($webinar->tasks_count)->toBe(6)
+        ->and($webinar->completed_tasks_count)->toBe(1);
 
-    // Overdue task for Conference
-    $overdueTask = $conference->tasks()->where('assigned_role', 'designer')->first();
-    expect($overdueTask)->not->toBeNull();
-    expect($overdueTask->status)->toBe('pending');
-    expect($overdueTask->due_date->isPast())->toBeTrue();
+    // Ad-hoc task in Webinar
+    $adHocTask = $webinar->tasks()->where('title', 'Live studio tech run with guest speakers')->first();
+    expect($adHocTask)->not->toBeNull()
+        ->and($adHocTask->assigned_role)->toBe('operations')
+        ->and($adHocTask->status)->toBe('pending');
 
-    // Event 2: Webinar (Microservices) - T+12
-    $webinar = $events->firstWhere('type', 'webinar');
-    expect($webinar)->not->toBeNull();
-    expect($webinar->title)->toBe('Building Resilient Microservices with Go & Kotlin');
-    expect($webinar->tasks_count)->toBe(4);
-    expect($webinar->completed_tasks_count)->toBe(1);
+    // T-plus task in Webinar
+    $postEventTask = $webinar->tasks()->where('title', 'Upload session recording & slides to Drive/YouTube')->first();
+    expect($postEventTask)->not->toBeNull()
+        ->and($postEventTask->due_date->greaterThan($webinar->event_date))->toBeTrue();
 
-    // Completed designer task with Unsplash creative banner
+    // Completed designer banner asset
     $bannerTask = $webinar->tasks()->where('assigned_role', 'designer')->first();
-    expect($bannerTask)->not->toBeNull();
-    expect($bannerTask->status)->toBe('completed');
-    expect($bannerTask->asset_url)->toContain('images.unsplash.com');
+    expect($bannerTask)->not->toBeNull()
+        ->and($bannerTask->status)->toBe('completed')
+        ->and($bannerTask->asset_url)->toContain('images.unsplash.com');
 
-    // In-progress copywriter task due tomorrow
-    $copyTask = $webinar->tasks()->where('assigned_role', 'copywriter')->first();
-    expect($copyTask)->not->toBeNull();
-    expect($copyTask->status)->toBe('in_progress');
-    expect($copyTask->due_date->isFuture())->toBeTrue();
-    expect($copyTask->asset_url)->toContain('docs.google.com');
+    // 2. High-Urgency Conference (Red alert overdue task)
+    $conference = $events->firstWhere('title', 'Enterprise Cloud & AI Summit 2026');
+    expect($conference)->not->toBeNull()
+        ->and($conference->status)->toBe('scheduled')
+        ->and($conference->tasks_count)->toBe(3);
 
-    // Event 3: Draft Internal Meeting (Hackathon) - T+25
-    $internalMeeting = $events->firstWhere('type', 'internal_meeting');
-    expect($internalMeeting)->not->toBeNull();
-    expect($internalMeeting->status)->toBe('draft');
-    expect($internalMeeting->tasks_count)->toBe(2);
-    expect($internalMeeting->completed_tasks_count)->toBe(0);
+    $overdueTask = $conference->tasks()->where('assigned_role', 'designer')->first();
+    expect($overdueTask)->not->toBeNull()
+        ->and($overdueTask->status)->toBe('pending')
+        ->and($overdueTask->due_date->isPast())->toBeTrue();
+
+    $dueSoonTask = $conference->tasks()->where('assigned_role', 'operations')->first();
+    expect($dueSoonTask)->not->toBeNull()
+        ->and($dueSoonTask->status)->toBe('in_progress')
+        ->and($dueSoonTask->due_date->isFuture())->toBeTrue();
+
+    // 3. Past / Archived Event (All tasks completed)
+    $pastEvent = $events->firstWhere('title', 'Q3 Backend Observability & Distributed Tracing Deep Dive');
+    expect($pastEvent)->not->toBeNull()
+        ->and($pastEvent->status)->toBe('completed')
+        ->and($pastEvent->event_date->isPast())->toBeTrue()
+        ->and($pastEvent->tasks_count)->toBe(4)
+        ->and($pastEvent->completed_tasks_count)->toBe(4);
+
+    // 4. Draft Planning Event
+    $draftEvent = $events->firstWhere('title', '2027 Strategic Tech Roadmap & Hackathon Planning');
+    expect($draftEvent)->not->toBeNull()
+        ->and($draftEvent->status)->toBe('draft')
+        ->and($draftEvent->tasks_count)->toBe(1);
+
+    // 5. Cancelled Event
+    $cancelledEvent = $events->firstWhere('title', 'Legacy Monolith Decomposition Workshop');
+    expect($cancelledEvent)->not->toBeNull()
+        ->and($cancelledEvent->status)->toBe('cancelled')
+        ->and($cancelledEvent->metadata)->toHaveKey('cancellation_reason');
+
+    // Tab counts verification
+    expect(Event::upcoming()->count())->toBe(2)
+        ->and(Event::past()->count())->toBe(1)
+        ->and(Event::drafts()->count())->toBe(1)
+        ->and(Event::cancelled()->count())->toBe(1);
 });
 
 test('DemoSeeder can be run multiple times cleanly without duplicate records or errors', function (): void {
     $this->seed(DemoSeeder::class);
     $this->seed(DemoSeeder::class);
 
-    expect(Event::count())->toBe(3);
-    expect(Task::count())->toBe(9);
+    expect(Event::count())->toBe(5)
+        ->and(Task::count())->toBe(15);
 });
